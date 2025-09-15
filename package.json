@@ -1,7 +1,9 @@
 "scripts": {
-  "build": "tsc",
-  "start": "node dist/server/index.js"
+  "dev": "vite",
+  "build": "vite build",
+  "start": "node api/index.js"
 }
+
 
 
 {
