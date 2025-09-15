@@ -25,7 +25,19 @@ export default function HomePage() {
     { id: "admin", label: "Quản trị hệ thống", icon: Gear, component: AdminTab, adminOnly: true },
   ];
 
-  const visibleTabs = tabs.filter(tab => !tab.adminOnly || user?.role === "admin");
+  const getVisibleTabs = () => {
+    if (user?.role === "admin") {
+      return tabs; // Admins see all tabs
+    } else if (user?.role === "customer") {
+      // Customers see tabs 1, 2, 5 (dashboard, cards, cashflow)
+      return tabs.filter(tab => ["dashboard", "cards", "cashflow"].includes(tab.id));
+    } else {
+      // Other roles see all except admin
+      return tabs.filter(tab => !tab.adminOnly);
+    }
+  };
+
+  const visibleTabs = getVisibleTabs();
 
   return (
     <div className="min-h-screen bg-white">

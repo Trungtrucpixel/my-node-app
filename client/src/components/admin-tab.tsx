@@ -41,12 +41,14 @@ const formatCurrency = (amount: string | number) => {
   return numAmount.toLocaleString("vi-VN") + " VND";
 };
 
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString("vi-VN");
+const formatDate = (date: string | Date) => {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleDateString("vi-VN");
 };
 
-const formatDateTime = (dateString: string) => {
-  return new Date(dateString).toLocaleString("vi-VN");
+const formatDateTime = (date: string | Date) => {
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+  return dateObj.toLocaleString("vi-VN");
 };
 
 const getRoleBadgeVariant = (role: string) => {
@@ -306,7 +308,7 @@ const TransactionApproval = () => {
                 {pendingTransactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="whitespace-nowrap" data-testid={`text-pending-date-${transaction.id}`}>
-                      {formatDate(transaction.date)}
+                      {transaction.date ? formatDate(transaction.date) : "-"}
                     </TableCell>
                     <TableCell className="whitespace-nowrap" data-testid={`text-pending-type-${transaction.id}`}>
                       <Badge variant="outline">
@@ -519,6 +521,7 @@ const ReportsAndAudit = () => {
     dateTo: "",
     format: "pdf" as "pdf" | "csv",
   });
+  const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   const { data: auditLogs = [], isLoading } = useQuery<AuditLog[]>({ 
@@ -545,35 +548,99 @@ const ReportsAndAudit = () => {
 
   const generatePDFReport = (data: any[], reportType: string) => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
     
-    // Header
-    doc.setFontSize(20);
-    doc.text(`Phúc An Đường - Báo cáo ${getReportTitle(reportType)}`, 20, 20);
+    // Header styling
+    doc.setFillColor(67, 176, 165); // #43B0A5
+    doc.rect(0, 0, pageWidth, 30, 'F');
     
-    // Date
-    doc.setFontSize(12);
-    doc.text(`Ngày tạo: ${formatDate(new Date().toISOString())}`, 20, 35);
+    // Title
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text('PHÚC AN ĐƯỜNG', pageWidth / 2, 15, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text(`Báo cáo ${getReportTitle(reportType)}`, pageWidth / 2, 25, { align: 'center' });
+    
+    // Reset color for content
+    doc.setTextColor(0, 0, 0);
+    
+    // Date info
+    doc.setFontSize(10);
+    doc.text(`Ngày tạo: ${formatDate(new Date().toISOString())}`, 20, 45);
     
     if (reportForm.dateFrom && reportForm.dateTo) {
-      doc.text(`Từ ${reportForm.dateFrom} đến ${reportForm.dateTo}`, 20, 45);
+      doc.text(`Từ ${reportForm.dateFrom} đến ${reportForm.dateTo}`, 20, 55);
     }
     
-    // Table data
-    let yPos = 60;
-    doc.setFontSize(10);
+    // Summary section
+    let yPos = 70;
+    doc.setFontSize(12);
+    doc.text(`Tổng số bản ghi: ${data.length}`, 20, yPos);
+    yPos += 10;
     
-    data.slice(0, 30).forEach((item, index) => { // Limit to 30 items
-      if (yPos > 250) { // New page if needed
-        doc.addPage();
-        yPos = 20;
-      }
+    // Add separator line
+    doc.setDrawColor(67, 176, 165);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos, pageWidth - 20, yPos);
+    yPos += 15;
+    
+    // Table data with better formatting
+    doc.setFontSize(9);
+    
+    if (data.length === 0) {
+      doc.text('Không có dữ liệu để hiển thị', 20, yPos);
+    } else {
+      const itemsPerPage = 20;
+      let currentPage = 1;
       
-      const line = `${index + 1}. ${JSON.stringify(item).substring(0, 100)}...`;
-      doc.text(line, 20, yPos);
-      yPos += 10;
-    });
+      data.slice(0, 100).forEach((item, index) => { // Limit to 100 items
+        if (yPos > pageHeight - 30) { // New page if needed
+          // Page footer
+          doc.setFontSize(8);
+          doc.text(`Trang ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+          
+          doc.addPage();
+          currentPage++;
+          yPos = 20;
+          
+          // Repeat header on new page
+          doc.setFontSize(12);
+          doc.text(`Báo cáo ${getReportTitle(reportType)} (tiếp theo)`, 20, yPos);
+          yPos += 15;
+        }
+        
+        // Format different report types differently
+        let line = '';
+        if (reportType === 'users') {
+          line = `${index + 1}. ${item.name || 'N/A'} - ${item.email || 'N/A'} - ${item.role || 'N/A'}`;
+        } else if (reportType === 'transactions') {
+          line = `${index + 1}. ${formatDate(item.date || new Date())} - ${item.type || 'N/A'} - ${formatCurrency(item.amount || 0)}`;
+        } else if (reportType === 'audit') {
+          line = `${index + 1}. ${formatDateTime(item.timestamp || new Date())} - ${item.action || 'N/A'} - ${item.userId || 'N/A'}`;
+        } else {
+          // Generic formatting
+          const displayText = typeof item === 'object' 
+            ? Object.values(item).slice(0, 3).join(' - ')
+            : String(item);
+          line = `${index + 1}. ${displayText.substring(0, 80)}${displayText.length > 80 ? '...' : ''}`;
+        }
+        
+        doc.text(line, 20, yPos);
+        yPos += 7;
+      });
+      
+      // Final page footer
+      doc.setFontSize(8);
+      doc.text(`Trang ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
     
-    // Save
+    // Footer with generation info
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Được tạo bởi hệ thống Phúc An Đường vào ${new Date().toLocaleString('vi-VN')}`, 20, pageHeight - 5);
+    
+    // Save with descriptive filename
     const fileName = `phuc-an-duong-${reportType}-${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
   };
