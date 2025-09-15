@@ -1,3 +1,9 @@
+"scripts": {
+  "build": "tsc",
+  "start": "node dist/server/index.js"
+}
+
+
 {
   "name": "rest-express",
   "version": "1.0.0",
