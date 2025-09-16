@@ -1,8 +1,4 @@
 #!/bin/bash
-echo "👉 Removing Replit-specific plugins from package.json..."
-# Tạm thời xóa các plugin Replit khỏi package.json
-npm remove @replit/vite-plugin-runtime-error-modal @replit/vite-plugin-cartographer @replit/vite-plugin-dev-banner
-
 echo "👉 Installing dependencies..."
 npm install
 
@@ -21,6 +17,8 @@ else
     echo "❌ Build failed!"
     [ -f "dist/server/index.js" ] || echo "Missing server build"
     [ -d "dist/public" ] || echo "Missing client build"
+    echo "Trying to build with verbose output..."
+    npx tsc --project tsconfig.json --verbose
     exit 1
 fi
 
