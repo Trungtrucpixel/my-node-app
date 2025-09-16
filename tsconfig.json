@@ -10,15 +10,23 @@
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
-    "lib": ["ES2020", "DOM"],
-    "types": ["node"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
     "resolveJsonModule": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["client/src/*"],
+      "@shared/*": ["shared/*"],
+      "@assets/*": ["attached_assets/*"]
+    }
   },
   "include": [
     "server/**/*",
-    "shared/**/*", 
+    "shared/**/*",
+    "client/**/*",
     "vite.config.ts",
     "**/*.ts",
     "**/*.tsx"
