@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "👉 Installing dependencies..."
-npm install
+npm install --production=false
 
 echo "👉 Building TypeScript project..."
 npm run build
@@ -10,8 +10,10 @@ if [ -f "dist/server/index.js" ]; then
     echo "✅ Build successful! dist/server/index.js exists."
 else
     echo "❌ Build failed! dist/server/index.js not found."
-    echo "Contents of dist directory:"
-    ls -la dist/ || echo "No dist directory found"
+    echo "Checking project structure..."
+    find . -name "*.ts" | head -10
+    echo "Trying to build with verbose output..."
+    npx tsc --project tsconfig.json --verbose
     exit 1
 fi
 
