@@ -1,10 +1,19 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session"; // Thêm import cho express-session
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Cấu hình session với secret từ biến môi trường
+app.use(session({
+  secret: process.env.SESSION_SECRET || "mySecretKey123!@#", // Sử dụng SESSION_SECRET từ Render, hoặc giá trị mặc định
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === "production" } // Chỉ dùng cookie secure trong production
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
