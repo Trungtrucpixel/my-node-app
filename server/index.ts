@@ -1,5 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session"; // Thêm import cho express-session
+import session from "express-session"; // Thêm import
+import pgSession from "connect-pg-simple"; // Thêm import cho PostgreSQL session store
+import { Pool } from "pg"; // Thêm import cho PostgreSQL pool
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -7,12 +9,21 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Cấu hình session với secret từ biến môi trường
+// Cấu hình PostgreSQL session store với Neon
+const pgPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false } // Cho phép SSL (cần cho Neon)
+});
+const PgStore = pgSession(session);
 app.use(session({
-  secret: process.env.SESSION_SECRET || "mySecretKey123!@#", // Sử dụng SESSION_SECRET từ Render, hoặc giá trị mặc định
+  store: new PgStore({
+    pool: pgPool,
+    ttl: 24 * 60 * 60 // Thời gian sống của session: 24 giờ
+  }),
+  secret: process.env.SESSION_SECRET || "mySecretKey123!@#", // Sử dụng SESSION_SECRET
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: process.env.NODE_ENV === "production" } // Chỉ dùng cookie secure trong production
+  cookie: { secure: process.env.NODE_ENV === "production" } // Secure cookie trong production
 }));
 
 app.use((req, res, next) => {
@@ -56,19 +67,12 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
