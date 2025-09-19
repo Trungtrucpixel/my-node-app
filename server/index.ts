@@ -1,7 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session"; // Thêm import
-import pgSession from "connect-pg-simple"; // Thêm import cho PostgreSQL session store
-import { Pool } from "pg"; // Thêm import cho PostgreSQL pool
+import session from "express-session"; // Import session
+import pgSession from "connect-pg-simple"; // Import PostgreSQL session store
+import pg from "pg"; // Import toàn bộ module pg (CommonJS)
+
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -10,6 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Cấu hình PostgreSQL session store với Neon
+const { Pool } = pg; // Lấy Pool từ module pg
 const pgPool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false } // Cho phép SSL (cần cho Neon)
