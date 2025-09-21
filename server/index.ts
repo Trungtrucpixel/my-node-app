@@ -2,7 +2,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session"; // Import session
 import pgSession from "connect-pg-simple"; // Import PostgreSQL session store
 import pg from "pg"; // Import toàn bộ module pg (CommonJS)
-import passport from "passport"; // Thêm Passport (giả sử đã có trong package.json)
+import passport from "passport"; // Thêm Passport
+import bcrypt from "bcryptjs"; // Thêm bcrypt để hash password
 
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -36,13 +37,13 @@ app.use(passport.session());
 
 // Hàm serialize và deserialize user cho Passport
 passport.serializeUser((user: any, done) => {
-  done(null, user.id); // Lưu ID user vào session
+  done(null, user.id); // Lưu ID user (UUID) vào session
 });
 
 passport.deserializeUser((id: string, done) => {
   pgPool.query('SELECT * FROM users WHERE id = $1', [id], (err, result) => {
     if (err) return done(err);
-    return done(null, result.rows[0]);
+    return done(null, result.rows[0]); // Trả về user từ database
   });
 });
 
@@ -82,11 +83,13 @@ app.use((req, res, next) => {
   if (process.env.ALLOW_ADMIN_SEED === "true") {
     const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
     const adminPassword = process.env.ADMIN_PASSWORD || "AdminPass123!";
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
     const checkUser = await pgPool.query('SELECT * FROM users WHERE email = $1', [adminEmail]);
     if (checkUser.rows.length === 0) {
       await pgPool.query(
         'INSERT INTO users (email, password, role) VALUES ($1, $2, $3)',
-        [adminEmail, adminPassword, 'admin']
+        [adminEmail, hashedPassword, 'admin']
       );
       log(`Admin seeded: ${adminEmail}`);
     }
