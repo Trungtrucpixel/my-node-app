@@ -39,10 +39,10 @@ passport.serializeUser((user: any, done) => {
   done(null, user.id); // Lưu ID user vào session
 });
 
-passport.deserializeUser((id: number, done) => {
+passport.deserializeUser((id: string, done) => {
   pgPool.query('SELECT * FROM users WHERE id = $1', [id], (err, result) => {
     if (err) return done(err);
-    return done(null, result.rows[0]); // Trả về user từ database
+    return done(null, result.rows[0]);
   });
 });
 
