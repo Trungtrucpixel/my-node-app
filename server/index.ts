@@ -2,10 +2,12 @@ import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session"; // Import session
 import pgSession from "connect-pg-simple"; // Import PostgreSQL session store
 import pg from "pg"; // Import toàn bộ module pg (CommonJS)
+import passport from "passport"; // Thêm Passport (giả sử đã có trong package.json)
 
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Khởi tạo Express
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -28,6 +30,23 @@ app.use(session({
   cookie: { secure: process.env.NODE_ENV === "production" } // Secure cookie trong production
 }));
 
+// Cấu hình Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Hàm serialize và deserialize user cho Passport
+passport.serializeUser((user: any, done) => {
+  done(null, user.id); // Lưu ID user vào session
+});
+
+passport.deserializeUser((id: number, done) => {
+  pgPool.query('SELECT * FROM users WHERE id = $1', [id], (err, result) => {
+    if (err) return done(err);
+    return done(null, result.rows[0]); // Trả về user từ database
+  });
+});
+
+// Middleware log
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -58,6 +77,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Seed admin (chạy lần đầu nếu có ALLOW_ADMIN_SEED)
+(async () => {
+  if (process.env.ALLOW_ADMIN_SEED === "true") {
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+    const adminPassword = process.env.ADMIN_PASSWORD || "AdminPass123!";
+    const checkUser = await pgPool.query('SELECT * FROM users WHERE email = $1', [adminEmail]);
+    if (checkUser.rows.length === 0) {
+      await pgPool.query(
+        'INSERT INTO users (email, password, role) VALUES ($1, $2, $3)',
+        [adminEmail, adminPassword, 'admin']
+      );
+      log(`Admin seeded: ${adminEmail}`);
+    }
+  }
+})();
+
+// Đăng ký routes và xử lý lỗi
 (async () => {
   const server = await registerRoutes(app);
 
@@ -75,7 +111,7 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = parseInt(process.env.PORT || '10000', 10); // Dùng port 10000 cho Render
   server.listen({
     port,
     host: "0.0.0.0",
